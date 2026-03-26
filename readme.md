@@ -38,3 +38,27 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## 🧩 Frontend + API Dev Setup
+The project now has:
+- Root backend API: `api.py` (FastAPI), which reads `2026_forecast.csv` and `models/` from the project root.
+- Standalone frontend app: `/interface` (Next.js), which calls the backend `/simulate` endpoint.
+
+### Run in two terminals
+```bash
+# Terminal 1 (root)
+uvicorn api:app --reload --port 8000
+
+# Terminal 2
+cd interface
+npm run dev
+```
+
+### Run both via Procfile (Foreman/Hivemind style)
+```bash
+foreman start
+```
+
+If your frontend is not using the default backend URL, set:
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```

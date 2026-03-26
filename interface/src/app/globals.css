@@ -1,0 +1,269 @@
+@import "tailwindcss";
+
+:root {
+  --background: #8b0000;
+  --foreground: #000000;
+  --font-heading: "Another Danger", "Times New Roman", serif;
+  --font-body: "Special Elite", "Courier New", monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-body);
+}
+
+@font-face {
+  font-family: "Another Danger";
+  src:
+    local("Another Danger"),
+    url("/fonts/AnotherDanger.woff2") format("woff2"),
+    url("/fonts/AnotherDanger.ttf") format("truetype");
+  font-style: oblique;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Special Elite";
+  src:
+    local("Special Elite"),
+    url("/fonts/SpecialElite.woff2") format("woff2"),
+    url("/fonts/SpecialElite.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  letter-spacing: 0.03em;
+}
+
+.glitch {
+  animation: glitch 900ms infinite steps(2, end);
+  text-shadow:
+    2px 0 #000,
+    -2px 0 #ffffff;
+}
+
+.typewriter {
+  width: fit-content;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid #000;
+  animation:
+    typing 2.8s steps(36, end) 1 forwards,
+    caret 450ms step-end infinite;
+}
+
+.typewriter-narrative {
+  min-height: 10.5rem;
+  font-family: var(--font-body);
+}
+
+.typewriter-cursor {
+  display: inline-block;
+  width: 10px;
+  height: 1em;
+  margin-left: 3px;
+  background: #000;
+  vertical-align: text-bottom;
+  animation: caret 450ms step-end infinite;
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  background: #000;
+  color: #fff;
+  border: 4px solid #000;
+  border-radius: 0;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+input[type="range"] {
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: #000;
+  border: 4px solid #000;
+  border-radius: 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 30px;
+  background: #fff;
+  border: 4px solid #000;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 30px;
+  background: #fff;
+  border: 4px solid #000;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.vertical-slider {
+  appearance: slider-vertical;
+  -webkit-appearance: slider-vertical;
+  width: 32px;
+  min-width: 32px;
+  height: 320px;
+  background: #000;
+  border: 4px solid #000;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.vertical-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 30px;
+  height: 26px;
+  background: #fff;
+  border: 4px solid #000;
+  border-radius: 0;
+}
+
+.vertical-slider::-moz-range-thumb {
+  width: 30px;
+  height: 26px;
+  background: #fff;
+  border: 4px solid #000;
+  border-radius: 0;
+}
+
+.glitch-heavy {
+  position: relative;
+  display: inline-block;
+  animation: glitch 520ms infinite steps(2, end);
+}
+
+.glitch-heavy::before,
+.glitch-heavy::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.glitch-heavy::before {
+  color: #ffffff;
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+  transform: translate(-3px, -2px);
+  animation: glitch-top 300ms infinite steps(2, end);
+}
+
+.glitch-heavy::after {
+  color: #000000;
+  clip-path: polygon(0 60%, 100% 60%, 100% 100%, 0 100%);
+  transform: translate(3px, 2px);
+  animation: glitch-bottom 360ms infinite steps(2, end);
+}
+
+.pulse-alert {
+  animation: pulse-alert 1.2s infinite ease-in-out;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(2px, -1px);
+  }
+  40% {
+    transform: translate(-2px, 1px);
+  }
+  60% {
+    transform: translate(3px, 0);
+  }
+  80% {
+    transform: translate(-1px, -1px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+@keyframes glitch-top {
+  0% {
+    transform: translate(-2px, -1px);
+  }
+  50% {
+    transform: translate(4px, -2px);
+  }
+  100% {
+    transform: translate(-1px, 0);
+  }
+}
+
+@keyframes glitch-bottom {
+  0% {
+    transform: translate(2px, 1px);
+  }
+  50% {
+    transform: translate(-4px, 2px);
+  }
+  100% {
+    transform: translate(1px, 0);
+  }
+}
+
+@keyframes typing {
+  from {
+    max-width: 0;
+  }
+  to {
+    max-width: 100%;
+  }
+}
+
+@keyframes caret {
+  50% {
+    border-color: transparent;
+  }
+}
+
+@keyframes pulse-alert {
+  0% {
+    opacity: 1;
+    text-shadow: 0 0 0 #000;
+  }
+  50% {
+    opacity: 0.4;
+    text-shadow: 0 0 12px #000;
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 0 #000;
+  }
+}

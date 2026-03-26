@@ -5,3 +5,5 @@ xgboost
 lifelines
 altair
 scikit-learn
+fastapi
+uvicorn
