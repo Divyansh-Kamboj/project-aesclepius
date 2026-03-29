@@ -64,15 +64,30 @@ app = FastAPI(title="Project Aesclepius API")
 
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
+    # Check if the request is coming from your domain
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "https://aesclepius.tech",
+        "https://www.aesclepius.tech",
+        "https://project-aesclepius.vercel.app",
+    ]
+
     if request.method == "OPTIONS":
         response = Response()
-        response.headers["Access-Control-Allow-Origin"] = "https://aesclepius.tech"
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        else:
+            # Fallback for testing
+            response.headers["Access-Control-Allow-Origin"] = "https://aesclepius.tech"
+
         response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
         return response
 
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "https://aesclepius.tech"
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
     return response
 
 XGB_BOOSTER, COX_MODELS = load_models()

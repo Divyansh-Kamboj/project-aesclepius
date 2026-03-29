@@ -32,38 +32,21 @@ type SimResponse = {
   }>;
 };
 
-export default function Home() {
-  const [step, setStep] = useState(1);
-  const [wEfficiency, setWEfficiency] = useState(0.5);
-  const [wHumanity, setWHumanity] = useState(0.5);
-  const [typedCount, setTypedCount] = useState(0);
-  const [typedWeightCount, setTypedWeightCount] = useState(0);
-  const [typedOutcomeCount, setTypedOutcomeCount] = useState(0);
-  const [isFetching, setIsFetching] = useState(false);
+type ResultsStepProps = {
+  wEfficiency: number;
+  wHumanity: number;
+  onContinue: () => void;
+};
+
+function ResultsStep({
+  wEfficiency,
+  wHumanity,
+  onContinue,
+}: ResultsStepProps) {
+  const [isFetching, setIsFetching] = useState(true);
   const [simulation, setSimulation] = useState<SimResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const resetRun = () => {
-    setWEfficiency(0.5);
-    setWHumanity(0.5);
-    setSimulation(null);
-    setError(null);
-    setStep(1);
-  };
-
-  const typedBrief = useMemo(
-    () => BRIEF_TEXT.slice(0, typedCount),
-    [typedCount],
-  );
-  const weightNarrative = step === 3 ? EFFICIENCY_TEXT : HUMANITY_TEXT;
-  const typedWeightNarrative = useMemo(
-    () => weightNarrative.slice(0, typedWeightCount),
-    [typedWeightCount, weightNarrative],
-  );
-  const typedOutcomeNarrative = useMemo(
-    () => YES_OUTCOME_TEXT.slice(0, typedOutcomeCount),
-    [typedOutcomeCount],
-  );
   const chartData = useMemo(() => {
     if (!simulation) {
       return [];
@@ -92,7 +75,209 @@ export default function Home() {
   }, [simulation]);
 
   useEffect(() => {
+    const runSimulation = async () => {
+      setIsFetching(true);
+      setError(null);
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiBase) {
+          throw new Error("NEXT_PUBLIC_API_URL is not configured");
+        }
+        const apiUrl = `${apiBase.replace(/\/$/, "")}/simulate`;
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            w_efficiency: wEfficiency,
+            w_humanity: wHumanity,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Simulation request failed (${response.status})`);
+        }
+
+        const payload = (await response.json()) as SimResponse;
+        setSimulation(payload);
+      } catch (err) {
+        console.error("Simulation fetch error:", err);
+        const message =
+          err instanceof Error ? err.message : "Unknown simulation error";
+        setError(message);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    void runSimulation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <>
+      <motion.section
+        key="step-5"
+        className="flex min-h-[70vh] w-full flex-col items-center justify-center gap-10 p-8 text-center md:p-12"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -18 }}
+        transition={{ duration: 0.4 }}
+      >
+        {error && <p className="text-xl uppercase">Simulation Error: {error}</p>}
+
+        {!error && !simulation && isFetching && (
+          <div className="h-[320px] w-full max-w-5xl animate-pulse" />
+        )}
+
+        {simulation && (
+          <>
+            <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em]">Lives Covered</p>
+                <p className="mt-2 text-5xl text-black md:text-7xl">
+                  {simulation.lives_covered.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em]">Death Toll</p>
+                <p className="mt-2 text-5xl text-black md:text-7xl">
+                  {simulation.unmet_need.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <section className="w-full max-w-5xl">
+              <div className="h-[340px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 16, right: 16, left: 4, bottom: 16 }}>
+                    <XAxis
+                      dataKey="Department"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fill: "#000000",
+                        fontSize: 12,
+                        fontFamily: "var(--font-special-elite)",
+                      }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fill: "#000000",
+                        fontSize: 12,
+                        fontFamily: "var(--font-special-elite)",
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#ff0000",
+                        border: "none",
+                        color: "#000000",
+                        fontFamily: "var(--font-special-elite)",
+                      }}
+                      labelStyle={{ color: "#000000" }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(value: any, name: any) => [
+                        value ? value.toLocaleString() : "0",
+                        name === "coveredPatients"
+                          ? "Covered Patients"
+                          : "Unmet Need",
+                      ]}
+                    />
+                    <Bar
+                      dataKey="coveredPatients"
+                      stackId="coverage"
+                      fill="#000000"
+                      isAnimationActive
+                      animationDuration={1500}
+                      animationBegin={0}
+                      animationEasing="ease-out"
+                    />
+                    <Bar
+                      dataKey="uncoveredPatients"
+                      stackId="coverage"
+                      fill="#2a2a2a"
+                      isAnimationActive
+                      animationDuration={1500}
+                      animationBegin={0}
+                      animationEasing="ease-out"
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="center"
+                      iconType="square"
+                      wrapperStyle={{
+                        fontFamily: "var(--font-special-elite)",
+                        color: "#000000",
+                        fontSize: "12px",
+                        paddingBottom: "10px",
+                      }}
+                      formatter={(value: string) =>
+                        value === "coveredPatients"
+                          ? "Funded/Covered"
+                          : "Unmet Need/Risk"
+                      }
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </>
+        )}
+      </motion.section>
+
+      {simulation && !error && (
+        <p
+          role="button"
+          tabIndex={0}
+          className="fixed right-2 top-1/2 z-30 -translate-y-1/2 cursor-pointer text-lg text-black underline underline-offset-8 transition-transform duration-200 hover:scale-105 md:right-5 md:text-2xl"
+          onClick={onContinue}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              onContinue();
+            }
+          }}
+        >
+          CONTINUE →
+        </p>
+      )}
+    </>
+  );
+}
+
+export default function Home() {
+  const [step, setStep] = useState(1);
+  const [wEfficiency, setWEfficiency] = useState(0.5);
+  const [wHumanity, setWHumanity] = useState(0.5);
+  const [typedCount, setTypedCount] = useState(0);
+  const [typedWeightCount, setTypedWeightCount] = useState(0);
+  const [typedOutcomeCount, setTypedOutcomeCount] = useState(0);
+
+  const resetRun = () => {
+    setWEfficiency(0.5);
+    setWHumanity(0.5);
+    setStep(1);
+  };
+
+  const typedBrief = useMemo(
+    () => BRIEF_TEXT.slice(0, typedCount),
+    [typedCount],
+  );
+  const weightNarrative = step === 3 ? EFFICIENCY_TEXT : HUMANITY_TEXT;
+  const typedWeightNarrative = useMemo(
+    () => weightNarrative.slice(0, typedWeightCount),
+    [typedWeightCount, weightNarrative],
+  );
+  const typedOutcomeNarrative = useMemo(
+    () => YES_OUTCOME_TEXT.slice(0, typedOutcomeCount),
+    [typedOutcomeCount],
+  );
+
+  useEffect(() => {
     if (step !== 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTypedCount(0);
       return;
     }
@@ -138,6 +323,7 @@ export default function Home() {
 
   useEffect(() => {
     if (step !== 3 && step !== 4) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTypedWeightCount(0);
       return;
     }
@@ -172,6 +358,7 @@ export default function Home() {
 
   useEffect(() => {
     if (step !== 7) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTypedOutcomeCount(0);
       return;
     }
@@ -206,49 +393,6 @@ export default function Home() {
       }
     };
   }, [step]);
-
-  useEffect(() => {
-    if (step !== 5 || simulation || isFetching) {
-      return;
-    }
-
-    const runSimulation = async () => {
-      setIsFetching(true);
-      setError(null);
-      try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL;
-        if (!apiBase) {
-          throw new Error("NEXT_PUBLIC_API_URL is not configured");
-        }
-        const apiUrl = `${apiBase.replace(/\/$/, "")}/simulate`;
-
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            w_efficiency: wEfficiency,
-            w_humanity: wHumanity,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Simulation request failed (${response.status})`);
-        }
-
-        const payload = (await response.json()) as SimResponse;
-        setSimulation(payload);
-      } catch (err) {
-        console.error("Simulation fetch error:", err);
-        const message =
-          err instanceof Error ? err.message : "Unknown simulation error";
-        setError(message);
-      } finally {
-        setIsFetching(false);
-      }
-    };
-
-    void runSimulation();
-  }, [step, simulation, isFetching, wEfficiency, wHumanity]);
 
   return (
     <main className="flex min-h-screen w-full flex-col justify-center px-6 py-10 pb-24 md:px-10">
@@ -398,15 +542,9 @@ export default function Home() {
                   ? "pointer-events-none opacity-35"
                   : "cursor-pointer hover:scale-105"
               }`}
-              onClick={() => {
-                setSimulation(null);
-                setError(null);
-                setStep(5);
-              }}
+              onClick={() => setStep(5)}
               onKeyDown={(event) => {
                 if ((event.key === "Enter" || event.key === " ") && typedWeightCount >= HUMANITY_TEXT.length) {
-                  setSimulation(null);
-                  setError(null);
                   setStep(5);
                 }
               }}
@@ -417,117 +555,11 @@ export default function Home() {
         )}
 
         {step === 5 && (
-          <motion.section
-            key="step-5"
-            className="flex min-h-[70vh] w-full flex-col items-center justify-center gap-10 p-8 text-center md:p-12"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.4 }}
-          >
-            {error && <p className="text-xl uppercase">Simulation Error: {error}</p>}
-
-            {!error && !simulation && isFetching && (
-              <div className="h-[320px] w-full max-w-5xl animate-pulse" />
-            )}
-
-            {simulation && (
-              <>
-                <div className="grid w-full max-w-4xl gap-6 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.2em]">Lives Covered</p>
-                    <p className="mt-2 text-5xl text-black md:text-7xl">
-                      {simulation.lives_covered.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.2em]">Death Toll</p>
-                    <p className="mt-2 text-5xl text-black md:text-7xl">
-                      {simulation.unmet_need.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <section className="w-full max-w-5xl">
-                  <div className="h-[340px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData} margin={{ top: 16, right: 16, left: 4, bottom: 16 }}>
-                        <XAxis
-                          dataKey="Department"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{
-                            fill: "#000000",
-                            fontSize: 12,
-                            fontFamily: "var(--font-special-elite)",
-                          }}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{
-                            fill: "#000000",
-                            fontSize: 12,
-                            fontFamily: "var(--font-special-elite)",
-                          }}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: "#ff0000",
-                            border: "none",
-                            color: "#000000",
-                            fontFamily: "var(--font-special-elite)",
-                          }}
-                          labelStyle={{ color: "#000000" }}
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          formatter={(value: any, name: any) => [
-                            value ? value.toLocaleString() : "0",
-                            name === "coveredPatients"
-                              ? "Covered Patients"
-                              : "Unmet Need",
-                          ]}
-                        />
-                        <Bar
-                          dataKey="coveredPatients"
-                          stackId="coverage"
-                          fill="#000000"
-                          isAnimationActive
-                          animationDuration={1500}
-                          animationBegin={0}
-                          animationEasing="ease-out"
-                        />
-                        <Bar
-                          dataKey="uncoveredPatients"
-                          stackId="coverage"
-                          fill="#2a2a2a"
-                          isAnimationActive
-                          animationDuration={1500}
-                          animationBegin={0}
-                          animationEasing="ease-out"
-                        />
-                        <Legend
-                          verticalAlign="top"
-                          align="center"
-                          iconType="square"
-                          wrapperStyle={{
-                            fontFamily: "var(--font-special-elite)",
-                            color: "#000000",
-                            fontSize: "12px",
-                            paddingBottom: "10px",
-                          }}
-                          formatter={(value: string) =>
-                            value === "coveredPatients"
-                              ? "Funded/Covered"
-                              : "Unmet Need/Risk"
-                          }
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </section>
-              </>
-            )}
-          </motion.section>
+          <ResultsStep
+            wEfficiency={wEfficiency}
+            wHumanity={wHumanity}
+            onContinue={() => setStep(6)}
+          />
         )}
 
         {step === 6 && (
@@ -613,22 +645,6 @@ export default function Home() {
           </motion.section>
         )}
       </AnimatePresence>
-
-      {step === 5 && simulation && !error && (
-        <p
-          role="button"
-          tabIndex={0}
-          className="fixed right-2 top-1/2 z-30 -translate-y-1/2 cursor-pointer text-lg text-black underline underline-offset-8 transition-transform duration-200 hover:scale-105 md:right-5 md:text-2xl"
-          onClick={() => setStep(6)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              setStep(6);
-            }
-          }}
-        >
-          CONTINUE →
-        </p>
-      )}
 
       <footer className="fixed inset-x-0 bottom-0 z-20 border-t-4 border-black bg-black px-4 py-2 text-center text-[11px] uppercase tracking-[0.16em] text-white md:text-xs">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-4 md:gap-8">
