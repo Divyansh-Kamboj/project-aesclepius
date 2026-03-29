@@ -1,8 +1,8 @@
 """
-API bridge for Project Aesclepius simulation logic.
+Standalone FastAPI backend for Project Aesclepius.
 
 Run with:
-    uvicorn api:app --reload --port 8000
+    python api.py
 """
 
 from __future__ import annotations
@@ -12,21 +12,37 @@ import pickle
 from typing import Any
 
 import pandas as pd
+import uvicorn
 import xgboost as xgb
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from app import load_data
+from src.costs import apply_meps_costs
 from src.engine import BudgetAllocator
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 FORECAST_PATH = os.path.join(BASE_DIR, "2026_forecast.csv")
+HARDCODED_BUDGET = 150_000_000
+
+
+def load_data(path: str = FORECAST_PATH) -> pd.DataFrame:
+    """
+    Load 2026 forecast CSV and align columns for the allocation engine.
+    """
+    df = pd.read_csv(path)
+    df = df.rename(columns={"Predicted_Patients_2026": "Projected_Volume"})
+    df["Department"] = df["Department"].str.replace("_", " ", regex=False)
+    df = apply_meps_costs(df)
+    return df
 
 
 def load_models() -> tuple[xgb.Booster, dict[str, Any]]:
-    """Load model artifacts using the same file paths as app.py."""
+    """
+    Load XGBoost and Cox models from the existing /models directory.
+    """
     xgb_path = os.path.join(MODELS_DIR, "xgb_mortality.json")
     cox_path = os.path.join(MODELS_DIR, "cox_models.pkl")
 
@@ -39,75 +55,20 @@ def load_models() -> tuple[xgb.Booster, dict[str, Any]]:
     return booster, cox_models
 
 
-def synthesize_features(risk_score: float, department_name: str) -> pd.DataFrame:
-    """
-    Build synthetic patient features aligned with app.py risk heuristics.
-    Cox models use Age_Numeric + Emergency_Flag.
-    """
-    if risk_score > 8:
-        age_numeric, emergency_flag = 4, 1
-    elif risk_score > 6:
-        age_numeric, emergency_flag = 3, 1
-    elif risk_score > 4:
-        age_numeric, emergency_flag = 2, 0
-    elif risk_score >= 3:
-        age_numeric, emergency_flag = 1, 0
-    else:
-        age_numeric, emergency_flag = 1, 0
-
-    if department_name == "Mental Health":
-        emergency_flag = 0
-
-    return pd.DataFrame(
-        [
-            {
-                "Age_Numeric": age_numeric,
-                "Emergency_Flag": emergency_flag,
-            }
-        ]
-    )
-
-
-def build_survival_curves(
-    cox_models: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """
-    Return chart-ready survival points for each department and risk tier.
-    """
-    curves: list[dict[str, Any]] = []
-    risk_tiers = [
-        {"label": "low", "risk_score": 2},
-        {"label": "medium", "risk_score": 5},
-        {"label": "high", "risk_score": 8},
-    ]
-
-    for department, model in cox_models.items():
-        for tier in risk_tiers:
-            synth = synthesize_features(tier["risk_score"], department)
-            sf = model.predict_survival_function(synth)
-            points = [
-                {"day": float(day), "survival_probability": float(value)}
-                for day, value in sf.iloc[:, 0].items()
-            ]
-            curves.append(
-                {
-                    "department": department,
-                    "risk_tier": tier["label"],
-                    "risk_score": tier["risk_score"],
-                    "points": points,
-                }
-            )
-
-    return curves
-
-
 class SimulationRequest(BaseModel):
     w_efficiency: float = Field(ge=0.0, le=1.0)
     w_humanity: float = Field(ge=0.0, le=1.0)
-    budget: float = Field(gt=0.0)
 
 
 app = FastAPI(title="Project Aesclepius API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 XGB_BOOSTER, COX_MODELS = load_models()
 
@@ -115,26 +76,35 @@ XGB_BOOSTER, COX_MODELS = load_models()
 @app.post("/simulate")
 def simulate(payload: SimulationRequest) -> dict[str, Any]:
     """
-    Run one simulation pass and return KPI + survival curve data.
+    Run allocator using fixed budget and return summary + chart data.
     """
-    df = load_data(FORECAST_PATH)
+    df = load_data()
     allocator = BudgetAllocator()
     result, remaining_budget = allocator.run_allocation(
         df,
-        payload.budget,
+        HARDCODED_BUDGET,
         w_efficiency=payload.w_efficiency,
         w_humanity=payload.w_humanity,
     )
 
-    total_lives_saved = int(result["People_Covered"].sum())
-    total_patients = int(result["Projected_Volume"].sum())
-    total_unmet_need = total_patients - total_lives_saved
+    lives_covered = int(result["People_Covered"].sum())
+    unmet_need = int(result["Projected_Volume"].sum()) - lives_covered
 
-    survival_curve_data = build_survival_curves(COX_MODELS)
+    chart_data = [
+        {
+            "Department": str(row["Department"]),
+            "Funded_Pct": float(row["Funded_Pct"]),
+        }
+        for _, row in result.iterrows()
+    ]
 
     return {
-        "total_lives_saved": total_lives_saved,
-        "total_unmet_need": total_unmet_need,
-        "remaining_budget": float(remaining_budget),
-        "survival_curves": survival_curve_data,
+        "lives_covered": lives_covered,
+        "unmet_need": unmet_need,
+        "budget_remaining": float(remaining_budget),
+        "chart_data": chart_data,
     }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #8b0000;
+  --background: #ff0000;
   --foreground: #000000;
-  --font-heading: "Another Danger", "Times New Roman", serif;
-  --font-body: "Special Elite", "Courier New", monospace;
+  --font-heading: var(--font-another-danger), "Another Danger", serif;
+  --font-body: var(--font-special-elite), "Special Elite", monospace;
 }
 
 @theme inline {
@@ -16,10 +16,7 @@
 
 @font-face {
   font-family: "Another Danger";
-  src:
-    local("Another Danger"),
-    url("/fonts/AnotherDanger.woff2") format("woff2"),
-    url("/fonts/AnotherDanger.ttf") format("truetype");
+  src: url("/fonts/AnotherDanger.ttf") format("truetype");
   font-style: oblique;
   font-weight: 400;
   font-display: swap;
@@ -27,10 +24,7 @@
 
 @font-face {
   font-family: "Special Elite";
-  src:
-    local("Special Elite"),
-    url("/fonts/SpecialElite.woff2") format("woff2"),
-    url("/fonts/SpecialElite.ttf") format("truetype");
+  src: url("/fonts/SpecialElite.ttf") format("truetype");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -152,6 +146,34 @@ input[type="range"]::-moz-range-thumb {
   background: #fff;
   border: 4px solid #000;
   border-radius: 0;
+}
+
+.horizontal-sleek-slider {
+  appearance: none;
+  width: min(760px, 82vw);
+  height: 8px;
+  background: #000;
+  border: 0;
+  border-radius: 0;
+}
+
+.horizontal-sleek-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #000;
+  border: 2px solid #000;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.horizontal-sleek-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #000;
+  border: 2px solid #000;
+  border-radius: 0;
+  cursor: pointer;
 }
 
 .glitch-heavy {
