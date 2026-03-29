@@ -1,2 +1,1 @@
-api: uvicorn api:app --reload --port 8000
-frontend: npm --prefix interface run dev
+web: uvicorn api:app --host 0.0.0.0 --port $PORT

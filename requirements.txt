@@ -1,9 +1,9 @@
-streamlit
+fastapi
+uvicorn
+pydantic
 pandas
 numpy
 xgboost
-lifelines
-altair
+pulp
 scikit-learn
-fastapi
-uvicorn
+python-multipart
