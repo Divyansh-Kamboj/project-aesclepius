@@ -220,8 +220,9 @@ export default function Home() {
         if (!apiBase) {
           throw new Error("NEXT_PUBLIC_API_URL is not configured");
         }
+        const apiUrl = `${apiBase.replace(/\/$/, "")}/simulate`;
 
-        const response = await fetch(`${apiBase}/simulate`, {
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

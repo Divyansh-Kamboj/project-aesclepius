@@ -64,18 +64,18 @@ app = FastAPI(title="Project Aesclepius API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://aesclepius.tech",
-        "https://www.aesclepius.tech",
-        "https://project-aesclepius.vercel.app",
-        "http://localhost:3000",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 XGB_BOOSTER, COX_MODELS = load_models()
+
+
+@app.options("/{rest_of_path:path}")
+async def preflight_handler() -> dict[str, Any]:
+    return {}
 
 
 @app.post("/simulate")
