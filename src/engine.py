@@ -15,6 +15,7 @@ Normalization
 """
 
 import numpy as np
+import pandas as pd
 
 
 class BudgetAllocator:
@@ -52,6 +53,65 @@ class BudgetAllocator:
             coverage columns) and the unspent budget.
         """
         df = df.copy()
+        print("DEBUG: run_allocation df.head()")
+        print(df.head())
+        print("DEBUG: run_allocation df.columns")
+        print(df.columns)
+
+        normalized_map = {
+            str(col).strip().lower().replace(" ", "_"): str(col) for col in df.columns
+        }
+
+        def canonicalize_column(canonical: str) -> None:
+            key = canonical.lower()
+            if canonical in df.columns:
+                return
+            if key in normalized_map:
+                df.rename(columns={normalized_map[key]: canonical}, inplace=True)
+
+        canonicalize_column("Risk_Score")
+        canonicalize_column("Projected_Volume")
+        canonicalize_column("Cost_Per_Person")
+        canonicalize_column("Total_Group_Cost")
+
+        if "Risk_Score" not in df.columns:
+            print(
+                "DEBUG: run_allocation missing 'Risk_Score'. "
+                f"Available columns: {df.columns.tolist()}"
+            )
+            df["Risk_Score"] = 0.5
+
+        if "Projected_Volume" not in df.columns:
+            print(
+                "DEBUG: run_allocation missing 'Projected_Volume'. "
+                f"Available columns: {df.columns.tolist()}"
+            )
+            df["Projected_Volume"] = 0.0
+
+        if "Cost_Per_Person" not in df.columns:
+            print(
+                "DEBUG: run_allocation missing 'Cost_Per_Person'. "
+                f"Available columns: {df.columns.tolist()}"
+            )
+            df["Cost_Per_Person"] = 0.0
+
+        if "Total_Group_Cost" not in df.columns:
+            print(
+                "DEBUG: run_allocation missing 'Total_Group_Cost'. "
+                f"Available columns: {df.columns.tolist()}"
+            )
+            df["Total_Group_Cost"] = df["Cost_Per_Person"] * df["Projected_Volume"]
+
+        df["Risk_Score"] = pd.to_numeric(df["Risk_Score"], errors="coerce").fillna(0.5)
+        df["Projected_Volume"] = pd.to_numeric(
+            df["Projected_Volume"], errors="coerce"
+        ).fillna(0.0)
+        df["Cost_Per_Person"] = pd.to_numeric(
+            df["Cost_Per_Person"], errors="coerce"
+        ).fillna(0.0)
+        df["Total_Group_Cost"] = pd.to_numeric(
+            df["Total_Group_Cost"], errors="coerce"
+        ).fillna(df["Cost_Per_Person"] * df["Projected_Volume"])
 
         # 1. Normalize Risk — divide by 10 so it sits in [0, 1] -----------
         df["Normalized_Risk"] = (df["Risk_Score"] / 10.0).round(4)

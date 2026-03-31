@@ -32,45 +32,83 @@ def load_data(path: str = FORECAST_PATH) -> pd.DataFrame:
     Load 2026 forecast CSV and align columns for the allocation engine.
     """
     df = pd.read_csv(path)
-    print(f"DEBUG: CSV Columns are {df.columns.tolist()}")
+    print(f"DEBUG: Raw CSV Columns are {df.columns.tolist()}")
 
-    # Normalize header whitespace and support alternative department names.
-    df.columns = [str(col).strip() for col in df.columns]
-    lower_to_actual = {str(col).lower(): str(col) for col in df.columns}
+    # Global normalization for cross-environment consistency.
+    df.columns = df.columns.str.strip().str.replace(" ", "_", regex=False)
 
-    if "department" not in lower_to_actual:
-        for candidate in ("dept", "sector"):
-            if candidate in lower_to_actual:
-                df = df.rename(columns={lower_to_actual[candidate]: "Department"})
-                break
-        else:
-            # Fallback: use first column as Department.
-            df = df.rename(columns={df.columns[0]: "Department"})
-    elif lower_to_actual["department"] != "Department":
-        df = df.rename(columns={lower_to_actual["department"]: "Department"})
+    def rename_first_match(target: str, candidates: tuple[str, ...]) -> None:
+        current_map = {str(col).lower(): str(col) for col in df.columns}
+        for candidate in candidates:
+            if candidate in current_map:
+                actual = current_map[candidate]
+                if actual != target:
+                    df.rename(columns={actual: target}, inplace=True)
+                return
 
-    volume_candidates = (
-        "projected_volume",
-        "predicted_patients_2026",
-        "predicted_volume",
-        "projected volume",
-        "predicted patients 2026",
-        "prediction",
+    rename_first_match("Department", ("department", "dept", "sector"))
+    rename_first_match(
+        "Projected_Volume",
+        (
+            "projected_volume",
+            "predicted_patients_2026",
+            "predicted_volume",
+            "xgboost_output",
+            "xgb_output",
+            "xgb_prediction",
+            "volume_prediction",
+            "volume",
+        ),
     )
-    for candidate in volume_candidates:
-        if candidate in lower_to_actual:
-            df = df.rename(columns={lower_to_actual[candidate]: "Projected_Volume"})
-            break
+    rename_first_match(
+        "Risk_Score",
+        (
+            "risk_score",
+            "predicted_risk_score",
+            "predicted_risk",
+            "risk",
+            "apr_risk_of_mortality",
+            "mortality_risk",
+            "risk_calculation_output",
+        ),
+    )
+
+    if "Department" not in df.columns and len(df.columns) > 0:
+        # Fallback for malformed exports.
+        df = df.rename(columns={df.columns[0]: "Department"})
 
     if "Projected_Volume" not in df.columns:
         print(
-            "DEBUG: load_data could not find a projected volume column. "
+            "DEBUG: load_data could not find projected volume output. "
             f"Available columns: {df.columns.tolist()}"
         )
+        df["Projected_Volume"] = 0.0
 
-    df["Department"] = df["Department"].str.replace("_", " ", regex=False)
+    if "Risk_Score" not in df.columns:
+        print(
+            "DEBUG: load_data could not find risk output. "
+            f"Available columns: {df.columns.tolist()}"
+        )
+        df["Risk_Score"] = 0.5
+
+    if "Department" in df.columns:
+        df["Department"] = (
+            df["Department"].astype(str).str.strip().str.replace("_", " ", regex=False)
+        )
+
+    df["Projected_Volume"] = pd.to_numeric(df["Projected_Volume"], errors="coerce").fillna(0.0)
+    df["Risk_Score"] = pd.to_numeric(df["Risk_Score"], errors="coerce").fillna(0.5)
+
     df = df.reset_index(drop=True)
     df = apply_meps_costs(df)
+    for col, default in (
+        ("Cost_Per_Person", 0.0),
+        ("Total_Group_Cost", 0.0),
+        ("Projected_Volume", 0.0),
+        ("Risk_Score", 0.5),
+    ):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(default)
     df = df.reset_index(drop=True)
     return df
 

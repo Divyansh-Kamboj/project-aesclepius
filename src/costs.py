@@ -5,6 +5,8 @@ Applies real MEPS 2022/2023 base costs per department and projects
 them forward to 2026 using a 5 % annual medical-inflation multiplier.
 """
 
+import pandas as pd
+
 # Base per-person costs from MEPS 2022/2023 data
 MEPS_BASE_COSTS = {
     "Cardiology":    4_655,
@@ -33,10 +35,17 @@ def apply_meps_costs(df):
         - ``Cost_Per_Person``  – MEPS base cost inflated to 2026.
         - ``Total_Group_Cost`` – Cost_Per_Person × Projected_Volume.
     """
+    print("DEBUG: apply_meps_costs df.head()")
+    print(df.head())
+    print("DEBUG: apply_meps_costs df.columns")
+    print(df.columns)
+
     # Normalize headers in a working copy so env-specific spacing/casing
     # differences do not break column access.
     normalized_df = df.copy()
-    normalized_df.columns = [str(col).strip().lower() for col in normalized_df.columns]
+    normalized_df.columns = [
+        str(col).strip().lower().replace(" ", "_") for col in normalized_df.columns
+    ]
 
     if "projected_volume" not in normalized_df.columns:
         print(
@@ -55,6 +64,13 @@ def apply_meps_costs(df):
     multiplier = (1 + INFLATION_RATE) ** PROJECTION_YEARS
     normalized_costs = {k.lower(): v for k, v in MEPS_BASE_COSTS.items()}
 
+    normalized_df["projected_volume"] = (
+        normalized_df["projected_volume"].astype(str).str.replace(",", "", regex=False)
+    )
+    normalized_df["projected_volume"] = pd.to_numeric(
+        normalized_df["projected_volume"], errors="coerce"
+    ).fillna(0.0)
+
     department_series = (
         normalized_df["department"].astype(str).str.strip().str.replace("_", " ", regex=False)
     )
@@ -63,6 +79,7 @@ def apply_meps_costs(df):
         department_series.str.lower().map(normalized_costs).mul(multiplier).round(2)
     )
 
-    df["Total_Group_Cost"] = (df["Cost_Per_Person"] * normalized_df["projected_volume"]).round(2)
+    df["Projected_Volume"] = normalized_df["projected_volume"]
+    df["Total_Group_Cost"] = (df["Cost_Per_Person"] * df["Projected_Volume"]).round(2)
 
     return df
