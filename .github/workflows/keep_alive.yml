@@ -14,16 +14,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Streamlit app
+      - name: Resolve app URL
+        id: app_url
         env:
-          STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL }}
+          STREAMLIT_APP_URL: ${{ secrets.STREAMLIT_APP_URL || vars.STREAMLIT_APP_URL }}
         run: |
           if [ -z "$STREAMLIT_APP_URL" ]; then
-            echo "STREAMLIT_APP_URL secret is not set."
-            exit 1
+            echo "App URL is not configured. Set STREAMLIT_APP_URL as a secret or variable."
+            echo "should_ping=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_ping=true" >> "$GITHUB_OUTPUT"
+            echo "url=$STREAMLIT_APP_URL" >> "$GITHUB_OUTPUT"
           fi
 
-          echo "Pinging $STREAMLIT_APP_URL"
+      - name: Ping Streamlit app
+        if: steps.app_url.outputs.should_ping == 'true'
+        run: |
+          echo "Pinging ${{ steps.app_url.outputs.url }}"
           curl --silent --show-error --location --fail \
             --retry 3 --retry-delay 5 --max-time 30 \
-            "$STREAMLIT_APP_URL" > /dev/null
+            "${{ steps.app_url.outputs.url }}" > /dev/null
+
+      - name: Skip notice
+        if: steps.app_url.outputs.should_ping != 'true'
+        run: echo "Skipping keep-alive ping because STREAMLIT_APP_URL is not set."
